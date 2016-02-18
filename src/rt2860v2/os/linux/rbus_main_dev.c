@@ -59,6 +59,11 @@ int rt2880_module_init(VOID)
 
 	DBGPRINT(RT_DEBUG_TRACE, ("===> rt2880_probe\n"));	
 
+	/* init /proc/mac_probe_list */
+    if( 0 != wl_proc_init())
+    	DBGPRINT(RT_DEBUG_ERROR, ("<=== /proc/mac_probe_info init ERROR!!!\n"));
+    else
+    	DBGPRINT(RT_DEBUG_TRACE, ("<=== /proc/mac_probe_info init successful.\n"));
 
 /*RtmpRaBusInit============================================ */
 	/* map physical address to virtual address for accessing register */
@@ -134,8 +139,6 @@ int rt2880_module_init(VOID)
 
 	/* due to we didn't have any hook point when do module remove, we use this static as our hook point. */
 	rt2880_dev = net_dev;
-	
-	wl_proc_init();
 
 	DBGPRINT(RT_DEBUG_TRACE, ("%s: at CSR addr 0x%lx, IRQ %ld. \n", net_dev->name, (ULONG)csr_addr, net_dev->irq));
 
@@ -167,6 +170,8 @@ VOID rt2880_module_exit(VOID)
 	struct net_device   *net_dev = rt2880_dev;
 	RTMP_ADAPTER *pAd;
 
+	/* clean /proc/mac_probe_list */
+	wl_proc_exit();
 
 	if (net_dev == NULL)
 		return;
@@ -193,6 +198,5 @@ VOID rt2880_module_exit(VOID)
 	    ra_classifier_release_func(); 	 
 #endif
 
-	wl_proc_exit();
 }
 
