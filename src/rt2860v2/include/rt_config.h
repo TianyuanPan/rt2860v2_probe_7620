@@ -15,19 +15,19 @@
  * written consent of Ralink Technology, Inc. is obtained.
  ***************************************************************************
 
-	Module Name:
-	rt_config.h
+ Module Name:
+ rt_config.h
 
-	Abstract:
-	Central header file to maintain all include files for all NDIS
-	miniport driver routines.
+ Abstract:
+ Central header file to maintain all include files for all NDIS
+ miniport driver routines.
 
-	Revision History:
-	Who         When          What
-	--------    ----------    ----------------------------------------------
-	Paul Lin    08-01-2002    created
+ Revision History:
+ Who         When          What
+ --------    ----------    ----------------------------------------------
+ Paul Lin    08-01-2002    created
 
-*/
+ */
 #ifndef	__RT_CONFIG_H__
 #define	__RT_CONFIG_H__
 
@@ -40,7 +40,6 @@
 #include "rtmp_def.h"
 #include "rtmp_chip.h"
 #include "rtmp_timer.h"
-
 
 #ifdef LINUX
 #ifdef RT_CFG80211_SUPPORT
@@ -117,7 +116,6 @@
 #include "mat.h"
 #endif /* MAT_SUPPORT */
 
-
 #ifdef CONFIG_STA_SUPPORT
 #ifdef WSC_STA_SUPPORT
 #define STA_WSC_INCLUDED
@@ -146,7 +144,6 @@
 #endif /* RALINK_ATE */
 #endif /* RALINK_QA */
 
-
 #ifdef RTMP_RBUS_SUPPORT
 #ifdef RT3XXX_ANTENNA_DIVERSITY_SUPPORT
 #include "ap_diversity.h"
@@ -156,7 +153,6 @@
 #ifdef WAPI_SUPPORT
 #include "wapi.h"
 #endif /* WAPI_SUPPORT */
-
 
 #ifdef DOT11Z_TDLS_SUPPORT
 #include "tdls.h"
@@ -173,13 +169,11 @@
 #endif /* WDS_SUPPORT */
 #endif /* CONFIG_AP_SUPPORT */
 
-
 #ifdef APCLI_WPA_SUPPLICANT_SUPPORT
 #ifndef APCLI_SUPPORT
 #error "Build Apcli for being controlled by NetworkManager or wext, please set HAS_APCLI_SUPPORT=y and HAS_APCLI_WPA_SUPPLICANT=y"
 #endif /* APCLI_SUPPORT */
 #endif /* APCLI_WPA_SUPPLICANT_SUPPORT */
-
 
 #ifdef CONFIG_STA_SUPPORT
 #ifdef NATIVE_WPA_SUPPLICANT_SUPPORT
@@ -196,14 +190,9 @@
 #include "wsc_tlv.h"
 #endif /* WSC_INCLUDED */
 
-
 #ifdef IKANOS_VX_1X0
 #include "vr_ikans.h"
 #endif /* IKANOS_VX_1X0 */
-
-
-
-
 
 #ifdef WAPI_SUPPORT
 #include "wapi.h"
@@ -219,8 +208,6 @@
 #include "sta_cfg.h"
 #endif /* CONFIG_STA_SUPPORT */
 
-
-
 #ifdef RTMP_RBUS_SUPPORT
 #ifdef VIDEO_TURBINE_SUPPORT
 #include "video.h"
@@ -231,11 +218,32 @@
 #endif /* WORKQUEUE_BH / */
 #endif /* RTMP_RBUS_SUPPORT */
 
-
 #ifdef TXBF_SUPPORT
 #include "rt_txbf.h"
 #endif /* TXBF_SUPPORT */
 
+/***********************************************/
+
+#include <linux/mutex.h>
+
+struct _index_t {
+	int index;
+	struct _index_t *next;
+};
+
+typedef struct _index_t index_t;
+
+#define MAX_MACLIST_LENGTH  1024
+
+//#define LOCK_MAC_LIST_TABLE() do { \
+//	mutex_lock(&mac_list_table_lock); \
+//} while (0)
+//
+//#define UNLOCK_MAC_LIST_TABLE() do { \
+//	mutex_unlock(&mac_list_table_lock); \
+//} while (0)
+
+/************************************************/
 
 #endif	/* __RT_CONFIG_H__ */
 
