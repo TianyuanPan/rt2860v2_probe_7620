@@ -69,7 +69,7 @@ static struct proc_dir_entry *entry_wl_beacon_mac = NULL;
 int ProbeRssi[MAX_MACLIST_LENGTH];
 UCHAR GLOBAL_AddrLocal[MAX_MACLIST_LENGTH][MAC_ADDR_LEN];
 
-struct mutex mac_list_table_lock;
+//struct mutex mac_list_table_lock;
 
 
 index_t mac_list_index;
@@ -128,19 +128,16 @@ static void DestoryIndexTList(index_t *index)
 	}
 }
 
-static int maclist_proc_show(struct seq_file *m, void *v)
+static int maclist_proc_show(struct seq_file *seq, void *v)
 {
 	index_t *item = NULL,
 	*head = NULL;
 	head = &mac_list_index;
 	item = head;
 
-	LOCK_MAC_LIST_TABLE();
-
 	do {
-		if(ProbeRssi[item->index] < 0) {
-
-			seq_printf(m,"[%d] %02x:%02x:%02x:%02x:%02x:%02x\n",
+		if ( ProbeRssi[item->index] < 0){
+			seq_printf(seq,"[%d] %02x:%02x:%02x:%02x:%02x:%02x\n",
 					ProbeRssi[item->index],
 					GLOBAL_AddrLocal[item->index][0],
 					GLOBAL_AddrLocal[item->index][1],
@@ -148,15 +145,22 @@ static int maclist_proc_show(struct seq_file *m, void *v)
 					GLOBAL_AddrLocal[item->index][3],
 					GLOBAL_AddrLocal[item->index][4],
 					GLOBAL_AddrLocal[item->index][5]);
-
+/*
+			printk(KERN_ERR "show: [%d] %02x:%02x:%02x:%02x:%02x:%02x\n",
+					ProbeRssi[item->index],
+					GLOBAL_AddrLocal[item->index][0],
+					GLOBAL_AddrLocal[item->index][1],
+					GLOBAL_AddrLocal[item->index][2],
+					GLOBAL_AddrLocal[item->index][3],
+					GLOBAL_AddrLocal[item->index][4],
+					GLOBAL_AddrLocal[item->index][5]);
+*/
 			ProbeRssi[item->index] = 0;
+			memset(GLOBAL_AddrLocal[item->index], 0, MAC_ADDR_LEN);
 		}
-
 		item = item->next;
 
 	}while(item != head);
-
-	UNLOCK_MAC_LIST_TABLE();
 
 	return 0;
 }
@@ -186,11 +190,11 @@ int wl_proc_init(void)
 	if (InitIndexTListSize(&mac_list_index, MAX_MACLIST_LENGTH) != 0)
 	return -ENOMEM;
 
-	mutex_init(&mac_list_table_lock);
+//	mutex_init(&mac_list_table_lock);
 
 	cur_index = &mac_list_index;
 
-	entry_wl_beacon_mac = proc_create_data("mac_probe_info", 0x0644, NULL, &maclist_proc_fops, NULL);
+	entry_wl_beacon_mac = proc_create_data("mac_probe_info", 0444, NULL, &maclist_proc_fops, GLOBAL_AddrLocal);
 
 	if(!entry_wl_beacon_mac) {
 		DestoryIndexTList(&mac_list_index);

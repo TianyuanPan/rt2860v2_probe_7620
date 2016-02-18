@@ -235,13 +235,13 @@ typedef struct _index_t index_t;
 
 #define MAX_MACLIST_LENGTH  1024
 
-#define LOCK_MAC_LIST_TABLE() do { \
-	mutex_lock(&mac_list_table_lock); \
-} while (0)
-
-#define UNLOCK_MAC_LIST_TABLE() do { \
-	mutex_unlock(&mac_list_table_lock); \
-} while (0)
+//#define LOCK_MAC_LIST_TABLE() do { \
+//	mutex_lock(&mac_list_table_lock); \
+//} while (0)
+//
+//#define UNLOCK_MAC_LIST_TABLE() do { \
+//	mutex_unlock(&mac_list_table_lock); \
+//} while (0)
 
 /************************************************/
 

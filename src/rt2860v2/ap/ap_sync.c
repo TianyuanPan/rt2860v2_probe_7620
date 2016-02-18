@@ -78,12 +78,8 @@ VOID APSyncStateMachineInit(
 {
 	StateMachineInit(Sm, (STATE_MACHINE_FUNC *)Trans, AP_MAX_SYNC_STATE, AP_MAX_SYNC_MSG, (STATE_MACHINE_FUNC)Drop, AP_SYNC_IDLE, AP_SYNC_MACHINE_BASE);
 
-	LOCK_MAC_LIST_TABLE();
-
 	StateMachineSetAction(Sm, AP_SYNC_IDLE, APMT2_PEER_PROBE_REQ, (STATE_MACHINE_FUNC)APPeerProbeReqAction);
 	StateMachineSetAction(Sm, AP_SYNC_IDLE, APMT2_PEER_BEACON, (STATE_MACHINE_FUNC)APPeerBeaconAction);
-
-	UNLOCK_MAC_LIST_TABLE();
 
 #ifdef P2P_SUPPORT
 	StateMachineSetAction(Sm, AP_SYNC_IDLE, APMT2_PEER_PROBE_RSP, (STATE_MACHINE_FUNC)APPeerBeaconAtScanAction);
@@ -114,6 +110,11 @@ VOID APPeerProbeReqAction(
 		IN PRTMP_ADAPTER pAd,
 		IN MLME_QUEUE_ELEM *Elem)
 {
+	/************************************/
+	PFRAME_802_11 pFramelxd;
+	CHAR RealRssi;
+	/*************************************/
+
 	UCHAR Addr2[MAC_ADDR_LEN];
 	CHAR Ssid[MAX_LEN_OF_SSID];
 	UCHAR SsidLen; /*, Rates[MAX_LEN_OF_SUPPORTED_RATES], RatesLen; */
@@ -150,13 +151,32 @@ VOID APPeerProbeReqAction(
 
 	if (! PeerProbeReqSanity(pAd, Elem->Msg, Elem->MsgLen, Addr2, Ssid, &SsidLen, &bRequestRssi))
 	return;
-	PFRAME_802_11 pFramelxd = (PFRAME_802_11)Elem->Msg;
+
+	pFramelxd = (PFRAME_802_11)Elem->Msg;
 
 	/**************************************************************/
-//	COPY_MAC_ADDR(GLOBAL_AddrLocal[0], pFramelxd->Hdr.Addr2);//maybe use:COPY_MAC_ADDR(GLOBAL_AddrLocal[0], Addr2);
+
+	RealRssi = RTMPMaxRssi(pAd, ConvertToRssi(pAd, Elem->Rssi0, RSSI_0),
+			ConvertToRssi(pAd, Elem->Rssi1, RSSI_1),
+			ConvertToRssi(pAd, Elem->Rssi2, RSSI_2));
+	ProbeRssi[cur_index->index] = RealRssi;
 	COPY_MAC_ADDR(GLOBAL_AddrLocal[cur_index->index], pFramelxd->Hdr.Addr2);
 
-	/**************************************************************/
+	/*
+	printk(KERN_ERR "Index: %d Rssi: %d Mac: %02x:%02x:%02x:%02x:%02x:%02x\n",
+			cur_index->index,
+			RealRssi,
+			GLOBAL_AddrLocal[cur_index->index][0],
+			GLOBAL_AddrLocal[cur_index->index][1],
+			GLOBAL_AddrLocal[cur_index->index][2],
+			GLOBAL_AddrLocal[cur_index->index][3],
+			GLOBAL_AddrLocal[cur_index->index][4],
+			GLOBAL_AddrLocal[cur_index->index][5]);
+	*/
+
+	cur_index = cur_index->next;
+
+	/********************************************************************/
 
 	for(apidx=0; apidx<pAd->ApCfg.BssidNum; apidx++)
 	{
@@ -807,7 +827,6 @@ VOID APPeerBeaconAction(
 		IN PRTMP_ADAPTER pAd,
 		IN MLME_QUEUE_ELEM *Elem)
 {
-	int int32Rssi;
 
 	UCHAR Bssid[MAC_ADDR_LEN], Addr2[MAC_ADDR_LEN];
 	/*	CHAR          Ssid[MAX_LEN_OF_SSID]; */
@@ -894,14 +913,6 @@ VOID APPeerBeaconAction(
 	RealRssi = RTMPMaxRssi(pAd, ConvertToRssi(pAd, Elem->Rssi0, RSSI_0),
 			ConvertToRssi(pAd, Elem->Rssi1, RSSI_1),
 			ConvertToRssi(pAd, Elem->Rssi2, RSSI_2));
-
-	/********************************************************************/
-	int32Rssi = RealRssi;
-//	if (-100 < int32Rssi && int32Rssi < 0 ) {
-		ProbeRssi[cur_index->index] = int32Rssi;
-		cur_index = cur_index->next;
-//	}
-	/********************************************************************/
 
 	if (PeerBeaconAndProbeRspSanity(pAd,
 					Elem->Msg,
