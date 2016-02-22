@@ -224,7 +224,19 @@
 
 /***********************************************/
 
-#include <linux/mutex.h>
+#include <linux/spinlock.h>
+
+#define  TABLE_MAX_LEN    1024
+#define  MAC_ADDR_LEN     6
+
+#define PROOC_ENTRY_NAME  "mac_probe_info"
+
+struct _mac_signal_t{
+	char c_signal;
+	unsigned char c_mac[MAC_ADDR_LEN];
+};
+
+typedef struct _mac_signal_t  mac_signal_t;
 
 struct _index_t {
 	int index;
@@ -233,15 +245,27 @@ struct _index_t {
 
 typedef struct _index_t index_t;
 
-#define MAX_MACLIST_LENGTH  1024
+extern spinlock_t mac_table_lock;
 
-//#define LOCK_MAC_LIST_TABLE() do { \
-//	mutex_lock(&mac_list_table_lock); \
-//} while (0)
-//
-//#define UNLOCK_MAC_LIST_TABLE() do { \
-//	mutex_unlock(&mac_list_table_lock); \
-//} while (0)
+
+#define LOCK_MAC_TABLE() do { \
+	spin_lock(&mac_table_lock); \
+} while (0)
+
+#define UNLOCK_MAC_TABLE() do { \
+	spin_unlock(&mac_table_lock); \
+} while (0)
+
+
+#define TRY_LOCK_MAC_TABLE() do { \
+	if (!spin_trylock(&mac_table_lock)) return; \
+} while (0)
+
+
+
+extern index_t mac_table_index;
+extern index_t *cur_index;
+extern mac_signal_t procfs_mac_table_info[TABLE_MAX_LEN];
 
 /************************************************/
 

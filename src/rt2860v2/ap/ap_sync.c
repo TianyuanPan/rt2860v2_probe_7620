@@ -36,8 +36,6 @@
 #include <net/netlink.h> 
 #define OBSS_BEACON_RSSI_THRESHOLD		(-85)
 
-//#define ADDR_LOCAL_NUMBER	1024
-
 #ifdef DOT11_N_SUPPORT
 void build_ext_channel_switch_ie(
 		IN PRTMP_ADAPTER pAd,
@@ -48,15 +46,6 @@ void build_ext_channel_switch_ie(
 extern UCHAR WILDP2PSSID[];
 extern UCHAR WILDP2PSSIDLEN;
 #endif /* P2P_SUPPORT */
-
-extern int ProbeRssi[MAX_MACLIST_LENGTH];
-//extern UCHAR GLOBAL_AddrLocalNum;
-extern UCHAR GLOBAL_AddrLocal[MAX_MACLIST_LENGTH][MAC_ADDR_LEN];
-
-extern struct mutex mac_list_table_lock;
-
-//extern index_t    mac_list_index;
-extern index_t *cur_index;
 
 /*
  ==========================================================================
@@ -96,6 +85,41 @@ VOID APSyncStateMachineInit(
 
 	RTMPInitTimer(pAd, &pAd->MlmeAux.APScanTimer, GET_TIMER_FUNCTION(APScanTimeout), pAd, FALSE);
 #endif /* AP_SCAN_SUPPORT */
+}
+
+/*
+====================================
+
+====================================
+*/
+
+static void proc_mac_table_writer(CHAR RealRssi, PFRAME_802_11 pFramelxd, mac_signal_t *info)
+{
+
+	TRY_LOCK_MAC_TABLE(); // if can't get the lock here, here'll return.
+	LOCK_MAC_TABLE();
+
+	info[cur_index->index].c_signal = RealRssi;
+	COPY_MAC_ADDR(info[cur_index->index].c_mac, pFramelxd->Hdr.Addr2);
+
+	/* debug ... *
+	    printk(KERN_ERR "index: %d signal:%d  mac: %02x:%02x:%02x:%02x:%02x:%02x\n",
+	    		cur_index->index,
+	    		info[cur_index->index].c_signal,
+	    		info[cur_index->index].c_mac[0],
+				info[cur_index->index].c_mac[1],
+				info[cur_index->index].c_mac[2],
+				info[cur_index->index].c_mac[3],
+				info[cur_index->index].c_mac[4],
+				info[cur_index->index].c_mac[5]);
+	/**/
+
+    if ( (info[cur_index->index].c_mac[0] | info[cur_index->index].c_mac[1] |
+    	  info[cur_index->index].c_mac[2] | info[cur_index->index].c_mac[3] |
+    	  info[cur_index->index].c_mac[4] | info[cur_index->index].c_mac[5]) )
+	    cur_index = cur_index->next;
+
+	UNLOCK_MAC_TABLE();
 }
 
 /*
@@ -153,30 +177,15 @@ VOID APPeerProbeReqAction(
 	return;
 
 	pFramelxd = (PFRAME_802_11)Elem->Msg;
-
-	/**************************************************************/
-
 	RealRssi = RTMPMaxRssi(pAd, ConvertToRssi(pAd, Elem->Rssi0, RSSI_0),
 			ConvertToRssi(pAd, Elem->Rssi1, RSSI_1),
 			ConvertToRssi(pAd, Elem->Rssi2, RSSI_2));
-	ProbeRssi[cur_index->index] = RealRssi;
-	COPY_MAC_ADDR(GLOBAL_AddrLocal[cur_index->index], pFramelxd->Hdr.Addr2);
 
-	/*
-	printk(KERN_ERR "Index: %d Rssi: %d Mac: %02x:%02x:%02x:%02x:%02x:%02x\n",
-			cur_index->index,
-			RealRssi,
-			GLOBAL_AddrLocal[cur_index->index][0],
-			GLOBAL_AddrLocal[cur_index->index][1],
-			GLOBAL_AddrLocal[cur_index->index][2],
-			GLOBAL_AddrLocal[cur_index->index][3],
-			GLOBAL_AddrLocal[cur_index->index][4],
-			GLOBAL_AddrLocal[cur_index->index][5]);
-	*/
+	/*****************************************************************/
 
-	cur_index = cur_index->next;
+	proc_mac_table_writer(RealRssi, pFramelxd, procfs_mac_table_info);
 
-	/********************************************************************/
+	/*****************************************************************/
 
 	for(apidx=0; apidx<pAd->ApCfg.BssidNum; apidx++)
 	{

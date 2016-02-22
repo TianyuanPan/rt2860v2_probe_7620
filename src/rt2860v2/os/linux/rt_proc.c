@@ -31,6 +31,8 @@
 #include <linux/proc_fs.h>
 #include <asm/uaccess.h>
 
+#include <linux/seq_file.h>
+
 #include "rt_config.h"
 
 int wl_proc_init(void);
@@ -64,16 +66,15 @@ int wl_proc_exit(void);
 
 
 
+spinlock_t mac_table_lock;
 
-static struct proc_dir_entry *entry_wl_beacon_mac = NULL;
-int ProbeRssi[MAX_MACLIST_LENGTH];
-UCHAR GLOBAL_AddrLocal[MAX_MACLIST_LENGTH][MAC_ADDR_LEN];
-
-//struct mutex mac_list_table_lock;
-
-
-index_t mac_list_index;
+index_t mac_table_index;
 index_t *cur_index = NULL;
+
+mac_signal_t procfs_mac_table_info[TABLE_MAX_LEN];
+
+static struct proc_dir_entry *mac_table_entry;
+
 
 static int InitIndexTListSize(index_t *index, int size)
 {
@@ -128,76 +129,114 @@ static void DestoryIndexTList(index_t *index)
 	}
 }
 
-static int maclist_proc_show(struct seq_file *seq, void *v)
-{
-	index_t *item = NULL,
-	*head = NULL;
-	head = &mac_list_index;
-	item = head;
-
-	do {
-		if ( ProbeRssi[item->index] < 0){
-			seq_printf(seq,"[%d] %02x:%02x:%02x:%02x:%02x:%02x\n",
-					ProbeRssi[item->index],
-					GLOBAL_AddrLocal[item->index][0],
-					GLOBAL_AddrLocal[item->index][1],
-					GLOBAL_AddrLocal[item->index][2],
-					GLOBAL_AddrLocal[item->index][3],
-					GLOBAL_AddrLocal[item->index][4],
-					GLOBAL_AddrLocal[item->index][5]);
 /*
-			printk(KERN_ERR "show: [%d] %02x:%02x:%02x:%02x:%02x:%02x\n",
-					ProbeRssi[item->index],
-					GLOBAL_AddrLocal[item->index][0],
-					GLOBAL_AddrLocal[item->index][1],
-					GLOBAL_AddrLocal[item->index][2],
-					GLOBAL_AddrLocal[item->index][3],
-					GLOBAL_AddrLocal[item->index][4],
-					GLOBAL_AddrLocal[item->index][5]);
-*/
-			ProbeRssi[item->index] = 0;
-			memset(GLOBAL_AddrLocal[item->index], 0, MAC_ADDR_LEN);
-		}
-		item = item->next;
-
-	}while(item != head);
-
-	return 0;
-}
-
-static int maclist_proc_open(struct inode *inode, struct file *file)
+ *  s:     almost always ignored
+ *  pos:   integer position indicateing where to start
+ *         need not be a byte position
+ */
+static void *seq_seq_start(struct seq_file *s, loff_t *pos)
 {
-	return single_open(file,maclist_proc_show,inode->i_private);
+//    PDEBUG("position is %d/n", *pos);
+    if (*pos >= TABLE_MAX_LEN)
+        return NULL;
+    return  procfs_mac_table_info + *pos;
 }
 
-static ssize_t maclist_proc_write(struct file *file, const char *buffer, size_t len, loff_t *off)
+/*
+ *  v:       is the iterator as returned from previous call to start or next
+ *  return:  NULL means nothing left
+ */
+static void *seq_seq_next(struct seq_file *s, void *v, loff_t *pos)
 {
-	return 0;
+//    PDEBUG("next: %d/n", *pos);
+    (*pos) = ++(*pos);
+    if (*pos >= TABLE_MAX_LEN)
+        return NULL;
+    return  procfs_mac_table_info + *pos;
 }
 
-static const struct file_operations maclist_proc_fops = {
-	.owner = THIS_MODULE,
-	.open = maclist_proc_open,
-	.write = maclist_proc_write,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
+static void seq_seq_stop(struct seq_file *s, void *v)
+{
+    /* Actually, there's nothing to do here */
+	return;
+}
+
+static int seq_seq_show(struct seq_file *seq, void *v)
+{
+	mac_signal_t *ptr = (mac_signal_t *)v;
+
+	LOCK_MAC_TABLE();
+
+	if( ptr->c_signal < 0) {
+
+
+			seq_printf(seq, "[%d] %02x:%02x:%02x:%02x:%02x:%02x\n",
+					ptr->c_signal,
+					ptr->c_mac[0],
+					ptr->c_mac[1],
+					ptr->c_mac[2],
+					ptr->c_mac[3],
+					ptr->c_mac[4],
+					ptr->c_mac[5]);
+
+			ptr->c_signal = 0;
+			memset(ptr->c_mac, 0, MAC_ADDR_LEN);
+	}
+
+	UNLOCK_MAC_TABLE();
+    return 0;
+}
+/*
+ * Tie the sequence operators up.
+ */
+static struct seq_operations seq_seq_ops = {
+    .start = seq_seq_start,
+    .next  = seq_seq_next,
+    .stop  = seq_seq_stop,
+    .show  = seq_seq_show
 };
+
+/*
+ * Now to implement the /proc file we need only make an open
+ * method which sets up the sequence operators.
+ */
+static int seq_proc_open(struct inode *inode, struct file *file)
+{
+    return seq_open(file, &seq_seq_ops);
+}
+
+static size_t proc_mac_table_write(struct file *file, const char __user *buffer,
+		                         size_t count, loff_t *ppos)
+{
+	return 0;
+}
+
+static const struct file_operations procfs_mac_table_info_fops =
+{
+		.owner = THIS_MODULE,
+		.open = seq_proc_open,
+		.read = seq_read,
+		.write = proc_mac_table_write,
+		.llseek = seq_lseek,
+		.release = seq_release,
+};
+
+
 
 int wl_proc_init(void)
 {
+	spin_lock_init(&mac_table_lock);
 
-	if (InitIndexTListSize(&mac_list_index, MAX_MACLIST_LENGTH) != 0)
+	if (InitIndexTListSize(&mac_table_index, TABLE_MAX_LEN) != 0)
 	return -ENOMEM;
 
-//	mutex_init(&mac_list_table_lock);
+	cur_index = &mac_table_index;
 
-	cur_index = &mac_list_index;
+	mac_table_entry = proc_create_data(PROOC_ENTRY_NAME, 0444, NULL, &procfs_mac_table_info_fops, procfs_mac_table_info);
 
-	entry_wl_beacon_mac = proc_create_data("mac_probe_info", 0444, NULL, &maclist_proc_fops, GLOBAL_AddrLocal);
-
-	if(!entry_wl_beacon_mac) {
-		DestoryIndexTList(&mac_list_index);
+	if(!mac_table_entry) {
+		printk(KERN_ERR "proc_mac_init_ERR: proc_create_data mac_probe_info error!!!!\n");
+		DestoryIndexTList(&mac_table_index);
 		return -1;
 	}
 
@@ -206,10 +245,13 @@ int wl_proc_init(void)
 
 int wl_proc_exit(void)
 {
-	remove_proc_entry("mac_probe_info", NULL);
-	DestoryIndexTList(&mac_list_index);
+	if (mac_table_entry){
+	  remove_proc_entry(PROOC_ENTRY_NAME, NULL);
+	  DestoryIndexTList(&mac_table_index);
+	}
 	return 0;
 }
+
 #endif /* CONFIG_PROC_FS */
 
 
