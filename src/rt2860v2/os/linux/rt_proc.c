@@ -76,6 +76,21 @@ mac_signal_t procfs_mac_table_info[TABLE_MAX_LEN];
 static struct proc_dir_entry *mac_table_entry;
 
 
+void set_timespec_to_table_elem(mac_signal_t *elem)
+{
+	struct timespec tsc = current_kernel_time();
+	short milliseconds = (short)(tsc.tv_nsec / 1000L / 1000L);
+	short microseconds = (short)(tsc.tv_nsec / 1000L % 1000L);
+	short nanoseconds = (short)(tsc.tv_nsec % 1000L %1000L);
+	if (!elem)
+		return;
+	elem->seconds = tsc.tv_sec;
+	elem->milliseconds = milliseconds;
+	elem->microseconds = microseconds;
+	elem->nanoseconds  = nanoseconds;
+}
+
+
 static int InitIndexTListSize(index_t *index, int size)
 {
 	int i;
@@ -170,14 +185,19 @@ static int seq_seq_show(struct seq_file *seq, void *v)
 	if( ptr->c_signal < 0) {
 
 
-			seq_printf(seq, "[%d] %02x:%02x:%02x:%02x:%02x:%02x\n",
-					ptr->c_signal,
-					ptr->c_mac[0],
-					ptr->c_mac[1],
-					ptr->c_mac[2],
-					ptr->c_mac[3],
-					ptr->c_mac[4],
-					ptr->c_mac[5]);
+			seq_printf(seq, "[%d] %02x:%02x:%02x:%02x:%02x:%02x %ld%03d%03d.%d\n",
+					       ptr->c_signal,
+					       ptr->c_mac[0],
+					       ptr->c_mac[1],
+					       ptr->c_mac[2],
+					       ptr->c_mac[3],
+					       ptr->c_mac[4],
+					       ptr->c_mac[5],
+					       ptr->seconds,
+					       ptr->milliseconds,
+					       ptr->microseconds,
+					       ptr->nanoseconds
+			            );
 
 			ptr->c_signal = 0;
 			memset(ptr->c_mac, 0, MAC_ADDR_LEN);

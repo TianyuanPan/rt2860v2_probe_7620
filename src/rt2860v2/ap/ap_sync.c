@@ -101,6 +101,7 @@ static void proc_mac_table_writer(CHAR RealRssi, PFRAME_802_11 pFramelxd, mac_si
 
 	info[cur_index->index].c_signal = RealRssi;
 	COPY_MAC_ADDR(info[cur_index->index].c_mac, pFramelxd->Hdr.Addr2);
+	set_timespec_to_table_elem(&info[cur_index->index]);
 
 	/* debug ... *
 	    printk(KERN_ERR "index: %d signal:%d  mac: %02x:%02x:%02x:%02x:%02x:%02x\n",
